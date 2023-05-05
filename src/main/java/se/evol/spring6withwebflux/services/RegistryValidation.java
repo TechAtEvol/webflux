@@ -8,7 +8,7 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class RegistryValidation implements Validation{
     @Override
-    public Mono<Boolean> isValid() {
+    public Mono<Boolean> isValid(String orgNo) {
         return Mono.just(true);
     }
 }
