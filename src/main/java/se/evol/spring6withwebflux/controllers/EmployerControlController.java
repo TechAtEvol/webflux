@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 import se.evol.spring6withwebflux.domain.ParallelValidation;
 import se.evol.spring6withwebflux.domain.ParallelValidationWithEarlyExit;
+import se.evol.spring6withwebflux.domain.SequentialValidation;
 import se.evol.spring6withwebflux.models.ValidationResult;
 
 @RestController
@@ -19,6 +20,10 @@ public class EmployerControlController {
     public static final String VALIDATION_PATH_EARLY_EXIT_WITH_ID = VALIDATION_PATH_EARLY_EXIT + "{org-no}";
     private final ParallelValidationWithEarlyExit parallelValidationWithEarlyExit;
 
+    public static final String VALIDATION_PATH_SEQ = "/api/validate-with-seq/";
+    public static final String VALIDATION_PATH_SEQ_WITH_ID = VALIDATION_PATH_SEQ + "{org-no}";
+    private final SequentialValidation sequentialValidation;
+
     @GetMapping(VALIDATION_PATH_WITH_ID)
     Mono<ValidationResult> getValidation(@PathVariable("org-no") String orgNo) {
         return parallelValidation.validate(orgNo);
@@ -27,5 +32,10 @@ public class EmployerControlController {
     @GetMapping(VALIDATION_PATH_EARLY_EXIT_WITH_ID)
     Mono<ValidationResult> getValidationWithEarlyExit(@PathVariable("org-no") String orgNo) {
         return parallelValidationWithEarlyExit.validate(orgNo);
+    }
+
+    @GetMapping(VALIDATION_PATH_SEQ_WITH_ID)
+    ValidationResult getValidationInSequence(@PathVariable("org-no") String orgNo) {
+        return sequentialValidation.validate(orgNo);
     }
 }
