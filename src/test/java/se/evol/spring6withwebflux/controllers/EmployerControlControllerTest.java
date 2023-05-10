@@ -12,11 +12,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import se.evol.spring6withwebflux.models.RegistryValidationResponse;
 import se.evol.spring6withwebflux.models.TaxValidationResponse;
-import se.evol.spring6withwebflux.models.ValidationResult;
-import se.evol.spring6withwebflux.services.TaxValidation;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static se.evol.spring6withwebflux.services.RegistryValidation.REGISTRY_PATH;
 import static se.evol.spring6withwebflux.services.TaxValidation.TAX_PATH;
 
 @SpringBootTest
@@ -45,10 +45,16 @@ class EmployerControlControllerTest {
     @DisplayName("All validations passes for org-id")
     void testAllValidationPasses () throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
-        String body = mapper.writeValueAsString(TaxValidationResponse.builder().fSkatt("true").build());
+        String taxBody = mapper.writeValueAsString(TaxValidationResponse.builder().fSkatt("true").build());
         wireMockServer.stubFor(get(urlEqualTo(TAX_PATH + passingId)).willReturn(ok()
                 .withHeader("Content-Type", "application/json")
-                .withBody(body))
+                .withBody(taxBody))
+        );
+        String registryBody = mapper.writeValueAsString(RegistryValidationResponse.builder().isValid("true").build());
+        wireMockServer.stubFor(get(urlEqualTo(REGISTRY_PATH + passingId))
+                .willReturn(ok()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(registryBody))
         );
         webTestClient.get().uri(EmployerControlController.VALIDATION_PATH + passingId).exchange().expectBody(String.class).isEqualTo("{\"isValidOnTax\":true,\"isValidOnRegistration\":true}");
     }
@@ -56,12 +62,37 @@ class EmployerControlControllerTest {
     @DisplayName("One validations fails in client call")
     void testValidationFailsOnOneClientCall () throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
-        String body = mapper.writeValueAsString(TaxValidationResponse.builder().fSkatt("false").build());
+            String taxBody = mapper.writeValueAsString(TaxValidationResponse.builder().fSkatt("false").build());
         wireMockServer.stubFor(get(urlEqualTo(TAX_PATH + failingId))
                 .willReturn(ok()
                         .withHeader("Content-Type", "application/json")
-                        .withBody(body))
+                        .withBody(taxBody))
+        );
+        String registryBody = mapper.writeValueAsString(RegistryValidationResponse.builder().isValid("true").build());
+        wireMockServer.stubFor(get(urlEqualTo(REGISTRY_PATH + failingId))
+                .willReturn(ok()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(registryBody))
         );
         webTestClient.get().uri(EmployerControlController.VALIDATION_PATH + failingId).exchange().expectBody(String.class).isEqualTo("{\"isValidOnTax\":false,\"isValidOnRegistration\":true}");
+    }
+    @Test
+    @DisplayName("Validation exits early on fails")
+    void testValidationFailsWithEarlyExit () throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+        String taxBody = mapper.writeValueAsString(TaxValidationResponse.builder().fSkatt("false").build());
+        wireMockServer.stubFor(get(urlEqualTo(TAX_PATH + failingId))
+                .willReturn(ok()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(taxBody))
+        );
+        String registryBody = mapper.writeValueAsString(RegistryValidationResponse.builder().isValid("true").build());
+        wireMockServer.stubFor(get(urlEqualTo(REGISTRY_PATH + failingId))
+                .willReturn(ok()
+                        .withFixedDelay(5000)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(registryBody))
+        );
+        webTestClient.get().uri(EmployerControlController.VALIDATION_PATH_EARLY_EXIT + failingId).exchange().expectBody(String.class).isEqualTo("{\"isValidOnTax\":false,\"isValidOnRegistration\":true}");
     }
 }
